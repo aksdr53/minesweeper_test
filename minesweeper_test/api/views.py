@@ -1,6 +1,7 @@
 from django.shortcuts import render
 from rest_framework.decorators import api_view
 from rest_framework.renderers import JSONRenderer
+from rest_framework import status
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 
@@ -10,7 +11,15 @@ from . minesweeper import Minesweeper
 
 @api_view(('POST',))
 def new(request):
+    """Api view function which creates new minesweeper game
+    """    
     data = request.data
+    if data.get('width') > 30 or data.get('height') > 30:
+        return Response(status=status.HTTP_400_BAD_REQUEST,
+                        data={'error': 'Слишком большое поле'})
+    if data.get('mines_count') > (data.get('width') * data.get('height')) - 1:
+        return Response(status=status.HTTP_400_BAD_REQUEST,
+                        data={'error': 'Слишком много мин'})
     game = Minesweeper(data.get('mines_count'), data.get('width'), data.get('height'),)
     game.start()
     field = ''
@@ -44,11 +53,16 @@ def new(request):
 
 @api_view(('POST',))
 def turn(request):
+    """Api view function which makes turn in minesweeper game
+    """    
     data = request.data
     game_id = data.get('game_id')
     col = data.get('col')
     row = data.get('row')
     game_obj = get_object_or_404(Game, game_id=game_id)
+    if game_obj.completed:
+        return Response(status=status.HTTP_400_BAD_REQUEST,
+                        data={'error': 'Игра уже закончена'})
     count = 0
     open_field= []
     field= []
@@ -57,6 +71,9 @@ def turn(request):
         for j in range(game_obj.width):
             open_field[i].append(game_obj.open_field[count])
             count += 1
+    if open_field[row][col] != ' ':
+        return Response(status=status.HTTP_400_BAD_REQUEST,
+                        data={'error': 'Клетка уже открыта'})
     count = 0
     for i in range(game_obj.height):
         field.append([])
